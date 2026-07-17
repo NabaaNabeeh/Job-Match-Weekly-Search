@@ -38,11 +38,10 @@ Schedule Trigger (Sun 8am)
 ## Project structure
 
 ```
-job-match-project/
+job-matcher/
 ├── README.md
-├── workflows/
-│   ├── cv-profile-update.json      # Workflow 1 — export from n8n
-└── └── weekly-job-search.json      # Workflow 2 — export from n8n 
+├── cv-profile-update.json      
+└── weekly-job-search.json      
 ```
 
 The two `.json` files are exact exports of the n8n workflows and can be re-imported into any n8n instance (cloud or self-hosted).
