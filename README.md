@@ -48,7 +48,7 @@ The two `.json` files are exact exports of the n8n workflows and can be re-impor
 
 ---
 
-## How it works — the shared Google Sheet
+## How it works — the Google Sheet
 
 Both workflows read/write to one spreadsheet, **"Job Match Tracker"**, with two tabs:
 
