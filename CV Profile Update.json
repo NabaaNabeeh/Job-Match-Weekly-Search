@@ -1,0 +1,288 @@
+{
+  "name": "CV Profile Update",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Update My Job Search Profile",
+        "formDescription": "Submit your name, email, and CV to get weekly job matches",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "CV (PDF)",
+              "fieldType": "file",
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "fd6e135d-0468-401c-9314-c25a64f7c0bd",
+      "name": "On form submission",
+      "webhookId": "484dce96-8d10-4c3a-8731-7627dd87a76e"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "CV__PDF_",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "9e6905d6-636e-4d3b-86ce-ec710d92743b",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        432,
+        192
+      ],
+      "id": "8759b5d4-5b26-4eba-8a99-e9b0f5633347",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "WXPe7f1vrK6wEzX6",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a job-search assistant. Read the following CV text and extract 8-10 relevant job-search keywords (skills, tools, technologies, role titles) useful for filtering job listings.\n\nReturn ONLY a valid JSON array of strings, nothing else. No explanation, no markdown formatting, no code fences.\n\nExample output: [\"python\", \"machine learning\", \"computer vision\", \"fastapi\", \"api development\", \"pytorch\", \"git\"]\n\nCV text:\n{{ $json.text }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        432,
+        0
+      ],
+      "id": "eccb6bb3-7ca7-4614-aa91-18a01689b46a",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1pEyoB0BmsDlv5Obrg484e8ajfxy-WcPUdxMWqxU19aY",
+          "mode": "list",
+          "cachedResultName": "Job Match Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pEyoB0BmsDlv5Obrg484e8ajfxy-WcPUdxMWqxU19aY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1460669137,
+          "mode": "list",
+          "cachedResultName": "Profile ",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pEyoB0BmsDlv5Obrg484e8ajfxy-WcPUdxMWqxU19aY/edit#gid=1460669137"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "email"
+          ],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "keywords",
+              "displayName": "keywords",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_updated",
+              "displayName": "last_updated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        992,
+        0
+      ],
+      "id": "f3648f17-d070-45a4-92e1-953085189dc5",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F1xun9F8pjc0xTgv",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b5387f19-c600-4fdc-af70-19b9e4adb5ec",
+              "name": "name",
+              "value": "={{ $('On form submission').item.json.Name }}",
+              "type": "string"
+            },
+            {
+              "id": "19dadc88-0202-4da1-8ee9-a6b8a04999c4",
+              "name": "email",
+              "value": "={{ $('On form submission').item.json.Email }}",
+              "type": "string"
+            },
+            {
+              "id": "3e779a01-867a-47e1-aba0-0efba72016db",
+              "name": "keywords",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "cf54a18b-886e-4ae3-964e-01cac9c88806",
+              "name": "last_updated",
+              "value": "={{ $now }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        0
+      ],
+      "id": "3c3830e3-475f-434b-8a16-968164f9f572",
+      "name": "Edit Fields"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "8d36ec6f-ba45-437f-96c2-630d818e2f1c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bf01984e18af2bb5fa4a59ca0b93d65fd4b8b4f33d8f4a0b7f16dd993612530d"
+  },
+  "nodeGroups": [],
+  "id": "rcr0DpnAY0EcVuaA",
+  "tags": []
+}

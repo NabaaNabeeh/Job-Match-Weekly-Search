@@ -1,0 +1,858 @@
+{
+  "name": "Job Match",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -16,
+        0
+      ],
+      "id": "95805144-97f6-4c0c-b74f-6aa3732b1054",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://remoteok.com/api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        640,
+        0
+      ],
+      "id": "0df487c7-ad42-49bf-8760-6bc668ae1840",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get keywords from the Profile sheet (previous node in the chain)\nconst profileRow = $('Get row(s) in sheet').first().json;\nlet rawKeywords = profileRow ? profileRow.keywords : null;\n\nlet keywords = [];\n\nif (Array.isArray(rawKeywords)) {\n  keywords = rawKeywords;\n} else if (typeof rawKeywords === 'string') {\n  const trimmed = rawKeywords.trim();\n  if (trimmed.startsWith('[')) {\n    try {\n      const parsed = JSON.parse(trimmed);\n      keywords = Array.isArray(parsed) ? parsed : [String(parsed)];\n    } catch (e) {\n      keywords = trimmed.replace(/[\\[\\]\"]/g, '').split(',').map(k => k.trim()).filter(Boolean);\n    }\n  } else {\n    keywords = trimmed.split(',').map(k => k.trim()).filter(Boolean);\n  }\n}\n\nkeywords = [...new Set(\n  keywords.map(k => (k === null || k === undefined) ? '' : String(k).toLowerCase().trim()).filter(Boolean)\n)];\n\nconsole.log('Parsed keywords:', keywords);\n\n// Get all jobs from RemoteOK response\nconst jobs = $input.all();\n\nconst matchedJobs = jobs.filter(item => {\n  const job = item.json;\n  \n  // Skip null/undefined items entirely\n  if (!job) return false;\n  \n  // Skip the legal notice item (no 'position' field, no 'id' field)\n  if (!job.position || typeof job.position !== 'string') return false;\n  \n  // Safely build searchable text, handling missing/non-array tags,\n  // missing company, and non-string fields\n  const positionText = String(job.position || '');\n  const tagsText = Array.isArray(job.tags) ? job.tags.filter(t => typeof t === 'string').join(' ') : '';\n  const companyText = typeof job.company === 'string' ? job.company : '';\n  \n  const jobText = (positionText + ' ' + tagsText + ' ' + companyText).toLowerCase();\n  \n  if (keywords.length === 0) return false;\n  \n  return keywords.some(keyword => jobText.includes(keyword));\n});\n\nconsole.log('Matched jobs:', matchedJobs.length, 'out of', jobs.length);\n\n// Guarantee non-empty output so downstream nodes never crash\nif (matchedJobs.length === 0) {\n  return [{\n    json: {\n      position: null,\n      no_match: true,\n      note: 'No jobs matched this run'\n    }\n  }];\n}\n\nreturn matchedJobs;\n  \n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        0
+      ],
+      "id": "3e2727f3-47ac-45e4-bd6b-faf7fa4f4ba0",
+      "name": "Code in JavaScript",
+      "alwaysOutputData": true,
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1056,
+        0
+      ],
+      "id": "4ecadfbb-9404-47e2-bf9c-1ebc7fc8d854",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1pEyoB0BmsDlv5Obrg484e8ajfxy-WcPUdxMWqxU19aY",
+          "mode": "list",
+          "cachedResultName": "Job Match Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pEyoB0BmsDlv5Obrg484e8ajfxy-WcPUdxMWqxU19aY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "JobLog",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pEyoB0BmsDlv5Obrg484e8ajfxy-WcPUdxMWqxU19aY/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "job_id",
+              "lookupValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1504,
+        144
+      ],
+      "id": "dbb3cbaa-4830-4ee6-8e1f-6155e39c06eb",
+      "name": "Get row(s) in sheet1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F1xun9F8pjc0xTgv",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "54591d4a-467c-4ad6-94fc-2b8115d4a25b",
+              "leftValue": "={{ $json.job_id ? true : false }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2080,
+        144
+      ],
+      "id": "4defff6a-71ea-4fb0-a729-8ebf55e21932",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a job-matching assistant. Compare this job listing to the candidate's keywords/skills and rate how relevant it is on a scale of 0-100.\n\nCandidate keywords: {{ $('Get row(s) in sheet').first().json.keywords }}\n\nJob title:Job title: {{ $('Loop Over Items').item.json.position }}\nJob tags: {{ $('Loop Over Items').item.json.tags ? $('Loop Over Items').item.json.tags.join(', ') : '' }}\nJob description snippet: {{ $('Loop Over Items').item.json.description ? $('Loop Over Items').item.json.description.substring(0, 300) : '' }}\n\nReturn ONLY a valid JSON object in this exact format, nothing else:\n{\"score\": <number 0-100>, \"reason\": \"<short one-sentence reason>\"}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2464,
+        160
+      ],
+      "id": "18c367d4-a73b-40e0-b232-591fe146388f",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f8b2b2f2-16f4-46f8-b56a-c0be3ea13ce2",
+              "name": "job_id",
+              "value": "={{ $('Loop Over Items').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "cef8fb9c-783a-4e46-ba1a-f5e5c242a797",
+              "name": "title",
+              "value": "={{ $('Loop Over Items').item.json.position }}",
+              "type": "string"
+            },
+            {
+              "id": "96dafa0e-b84a-4aeb-a173-0b0ff96f26f0",
+              "name": "company",
+              "value": "={{ $('Loop Over Items').item.json.company }}",
+              "type": "string"
+            },
+            {
+              "id": "0a311769-c686-4eba-a351-f668b45a6836",
+              "name": "url",
+              "value": "={{ $('Loop Over Items').item.json.apply_url }}",
+              "type": "string"
+            },
+            {
+              "id": "778176b6-73b4-4405-b6f9-2ea49b318b05",
+              "name": "score",
+              "value": "={{ JSON.parse($json.text).score }}",
+              "type": "number"
+            },
+            {
+              "id": "f9b6b659-f347-41c5-bcc9-f5a717647661",
+              "name": "reason",
+              "value": "={{ JSON.parse($json.text).reason }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2736,
+        160
+      ],
+      "id": "cceb7b9a-4698-400f-8586-6d15dcf86b95",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        352
+      ],
+      "id": "1cd46644-ed9a-4546-8b95-09d033d1438f",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "cEalacgB4BKP1g47",
+          "name": "Groq account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2304,
+        160
+      ],
+      "id": "e450e04d-d29d-4ce0-a922-a1b36a520aec",
+      "name": "Wait",
+      "webhookId": "92685665-37fd-484b-a291-e3af27db1168"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "43dd5391-2471-4f16-b9d9-3868af4bda76",
+              "leftValue": "={{ $json.match_score !== null && $json.match_score !== undefined }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "95c687b8-4589-4959-b379-a20b2f705b21",
+              "leftValue": "={{ $json.match_score }}",
+              "rightValue": 70,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1504,
+        -16
+      ],
+      "id": "0e045851-bf1b-4f4b-8031-fcdeb317b442",
+      "name": "Filter",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "match_score",
+              "order": "descending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.sort",
+      "typeVersion": 1,
+      "position": [
+        1936,
+        -128
+      ],
+      "id": "d90a84fb-3297-45f8-9e13-9d97bcc26b31",
+      "name": "Sort",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1pEyoB0BmsDlv5Obrg484e8ajfxy-WcPUdxMWqxU19aY",
+          "mode": "list",
+          "cachedResultName": "Job Match Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pEyoB0BmsDlv5Obrg484e8ajfxy-WcPUdxMWqxU19aY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "JobLog",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pEyoB0BmsDlv5Obrg484e8ajfxy-WcPUdxMWqxU19aY/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.score >= 70 ? \"sent\" : \"scored_low\" }}",
+            "date_checked": "={{ $now }}",
+            "job_id": "={{ $json.job_id }}",
+            "company": "={{ $json.company }}",
+            "title": "={{ $json.title }}",
+            "url": "={{ $json.url }}",
+            "match_score": "={{ $json.score }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "job_id",
+              "displayName": "job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "match_score",
+              "displayName": "match_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date_checked",
+              "displayName": "date_checked",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2880,
+        160
+      ],
+      "id": "57269931-47a8-4466-a5a1-2875e77f008b",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F1xun9F8pjc0xTgv",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "maxItems": 3
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        2144,
+        -128
+      ],
+      "id": "45bdb30c-b8b7-4389-9fc8-e8a4b79c2ced",
+      "name": "Limit",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2352,
+        -128
+      ],
+      "id": "0e5d4dcf-2b9b-4b35-b143-eb7a357baf2b",
+      "name": "Aggregate",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "35291a5d-239e-442d-99e1-06964a9f9673",
+              "name": "emailBody",
+              "value": "={{ \"<p>Good morning, sunshine! :) Hope you have an awesome and productive week.</p><p>How about starting it off by applying to a few jobs that actually match your CV? Here's what I found for you:</p>\" + $json.data.map((job, i) => `<h3>${i + 1}. ${job.title} at ${job.company}</h3><p><b>Match Score:</b> ${job.match_score}/100</p><p><a href=\"${job.url}\">Apply here</a></p><hr>`).join(\"\") + \"<p>Good luck — go get 'em! </p>\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2560,
+        -128
+      ],
+      "id": "82273298-b1e9-4562-aed1-1d4b830cf798",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Get row(s) in sheet').first().json.email }}",
+        "subject": "Your Weekly Job Matches",
+        "message": "={{ $json.emailBody }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2784,
+        -128
+      ],
+      "id": "78f8e116-42e5-4535-83c5-5789a8ce5315",
+      "name": "Send a message",
+      "webhookId": "c5cfb457-7438-4578-a4d2-8668ccd7cfcd",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "xRqk8Ts3MzX4R7a6",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a15b0c39-71db-4e09-8ab5-34c11130b0b0",
+              "leftValue": "={{ Object.keys($json).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1712,
+        -16
+      ],
+      "id": "ee3701e2-368b-4ca0-8ddd-e7440f21b2b7",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6f2f82da-9335-4586-8d91-9ddae3d209ee",
+              "name": "emailBody",
+              "value": "<p>Good morning, sunshine! :) Hope you have an awesome and productive week.</p><p>No strong matches this week, but don't worry — I'll keep looking and hit your inbox again next Sunday with fresh picks!</p>",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2464,
+        0
+      ],
+      "id": "d2d3ec5c-0112-4310-a32a-d4c16369e044",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1pEyoB0BmsDlv5Obrg484e8ajfxy-WcPUdxMWqxU19aY/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Profile ",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "a2d297ad-7764-42ec-b14a-618d6f141a28",
+      "name": "Get All Profiles",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GByQk6iO2DDEUKNQ",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\n\nconst sorted = rows.sort((a, b) => \n  new Date(b.json.last_updated) - new Date(a.json.last_updated)\n);\n\nreturn [sorted[0]];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "71cb1334-eee4-4848-9869-8a7f288183bd",
+      "name": "Get row(s) in sheet"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get All Profiles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get row(s) in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Sort",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Profiles": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c39b6330-0772-4c40-b829-bd097a2d18ee",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bf01984e18af2bb5fa4a59ca0b93d65fd4b8b4f33d8f4a0b7f16dd993612530d"
+  },
+  "nodeGroups": [],
+  "id": "G3e6GkPLWmi5sQY5",
+  "tags": []
+}
