@@ -1,4 +1,4 @@
-# Job-Match-Weekly-Search
+# Job-Match-Weekly-Search (Jobify)
 
 An n8n automation that reads your CV, extracts your skills using AI, searches live remote job listings every week, scores each job against your profile, and emails you the top matches — fully automated, no manual steps once set up.
 
